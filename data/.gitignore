@@ -1,0 +1,18 @@
+# files & directories
+data/raw/
+data/db_record.txt
+
+# SQLite database files
+*.db
+
+# any virtual environmet files
+venv/
+.env
+
+# python byte-code and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# system files
+.DS_Store
