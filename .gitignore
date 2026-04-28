@@ -1,5 +1,7 @@
 # files & directories
-data/raw/
+data/raw/*.json
+data/processed/*.json
+data/quarantine/*.json
 data/db_record.txt
 
 # SQLite database files

@@ -2,13 +2,13 @@ import sqlite3
 
 DB_PATH = "lab_data.db"
 
-def get_connection(DB_PATH):
+def get_connection(db_path=DB_PATH):
     """Returns a connection object to the SQLite database."""
-    return sqlite3.connect(DB_PATH)
+    return sqlite3.connect(db_path)
 
 
-def create_db_schema(DB_PATH):
-    conn = sqlite3.connect(DB_PATH)
+def create_db_schema(db_path=DB_PATH):
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -23,7 +23,7 @@ def create_db_schema(DB_PATH):
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS Measurements (
-        measurement_id INTEGER PRIMAARY KEY AUTOINCREMENT,
+        measurement_id INTEGER PRIMARY KEY AUTOINCREMENT,
         experiment_id INTEGER,
         time_min REAL,
         temp_c REAL,

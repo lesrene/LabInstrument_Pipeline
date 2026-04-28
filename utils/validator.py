@@ -9,7 +9,7 @@ def validate_instrument_data(data):
     if sample_name is None:
         return False, "Missing Sample ID"
     
-    operator_name = data["Operators"]["Name"]
+    operator_name = data["Operators"][0]["Name"]
     if operator_name is None:
         return False, "Missing Operator"
 
