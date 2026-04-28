@@ -9,7 +9,7 @@ def generate_realistic_data(total_rows):
     rows_per_step = total_rows // 4
     current_time = 0.00
     current_temp = 0.00
-    for i in range(total_rows+1):
+    for i in range(total_rows):
         if i < total_rows - (total_rows - rows_per_step):
             step_id = "STEP-001"
             current_temp = 0.00 + random.uniform(-0.05, 0.05)
@@ -37,7 +37,8 @@ def generate_realistic_data(total_rows):
     return rows
 
 def generate_lab_json(data_points = 20):
-    operator = random.choice(['AE', 'GG', 'IN', 'CD', 'AL', 'GWC', 'KJ', 'MMD'])
+    mdl_key = random.choice(["Schema", "Operators", "Sample", "Procedure", "Results", "StartTime"])
+    operator = random.choice(['AE', 'GG', 'IN', 'CD', 'AL', 'GWC', 'KJ', 'MMD', 'None'])
     sample_id = int(time.time()) if random.random() > 0.005 else None # simulating data quality issue where sample id isn't found
     sample_name = f"ID-{sample_id}_PLA_Polymer" 
 
@@ -47,7 +48,7 @@ def generate_lab_json(data_points = 20):
         "Sample": {
             "Name": sample_name,
             "Mass": {
-            "Value": random.uniform(15.0,25.0) if random.random() > 0.05 else -1.0, # normal val except sometimes when random.random() is below .05 val is -1 to simulate a data quality issue
+            "Value": random.uniform(15.00,25.00) if random.random() > 0.05 else -1.00, # normal val except sometimes when random.random() is below .05 val is -1 to simulate a data quality issue
             "Unit": {
                 "Name": "mg" if random.random() > 0.005 else "g" # also simulating data quality issue
             }
@@ -70,31 +71,35 @@ def generate_lab_json(data_points = 20):
                 "Temp_C": {"DisplayName": "Temperature", "Unit": {"Name": "°C"}},
                 "HeatFlow_mW": {"DisplayName": "Heat Flow", "Unit": {"Name": "mW"}}
             },
-            "Rows": generate_realistic_data(data_points)
+            "Rows": generate_realistic_data(data_points) if random.random() > 0.001 else []
         },
         "StartTime": time.asctime()   
-    }
+    } 
+
+    data if random.random() > 0.005 else data.keys() - {mdl_key} # removes one of the necessary keys every once in a while for a data quality issue
 
     return data, sample_id
 
 def save_json(data, identification):
     os.makedirs("data/raw", exist_ok=True)
+
     if identification is None:
         identification = "NULL"
 
     filename = f"data/raw/instrument_run_{identification}.json"   
     with open(filename, 'w') as f:
-        json.dump(data, f)
+        json.dump(data, f, indent=4)
 
     with open("data/db_record.txt", 'a') as f1: # for internal record keeping so I can know which sample ids are currently valid
-        f1.write(f"instrument_run_{identification}")
+        f1.write(f"instrument_run_{identification}\n")
     print(f"Generated: {filename}")
 
 
 if __name__ == "__main__":
     print("Starting Lab Instrument Simulator (Ctrl+C to stop)...")
-    experiment, s_id = generate_lab_json()
+
     while True:
+        experiment, s_id = generate_lab_json()
         save_json(experiment, s_id)
         clean_db()
         time.sleep(10)
