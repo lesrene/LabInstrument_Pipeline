@@ -2,7 +2,7 @@ import json
 import time
 import random
 import os
-from cleanup import clean_db
+from utils.cleanup import clean_db
 
 def generate_realistic_data(total_rows):
     rows = []

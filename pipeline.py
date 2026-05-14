@@ -10,7 +10,14 @@ from watchdog.observers import Observer
 import time
 
 # sets up a log to keep info about the ingestion & processing of the files
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("pipeline.log"), 
+        logging.StreamHandler()              
+    ]
+)
 logger = logging.getLogger("ETL_Pipeline")
 
 class LabDataHandler(FileSystemEventHandler):
@@ -27,7 +34,7 @@ class LabDataHandler(FileSystemEventHandler):
         file_name = os.path.basename(file_path)
         new_path = os.path.join(quarantine_folder, file_name)
         os.rename(file_path, new_path)
-        logger.info("Moved: {file_name} -> {quarantine_folder}")
+        logger.info(f"Moved: {file_name} -> {quarantine_folder}")
 
     def process_file(self, file_path):
         processed_folder = "data/processed"
@@ -42,25 +49,30 @@ class LabDataHandler(FileSystemEventHandler):
         with open(file_path, 'r') as f:
             data = json.load(f)
 
-        # step 2: determine if we need to quarantine, if no continue, if yes redirect
-        is_valid, message = validate_instrument_data(data)
-        # step 2 redirect: move to data/quarantine, log move to qurantine bucket with info about data quality issue
-        if not is_valid:
-            logger.error(f"VALIDATION_FAILED: {message} in {file_path}")
-            self.quarantine_file(file_path)
-            return
-        # step 3: any pre-processing and flatten the json
-        # step 4: add rows to sqlite database, log addition of rows to database
         try:
+            create_db_schema()
+            conn = get_connection()
+
+            # step 2: determine if we need to quarantine, if no continue, if yes redirect
+            is_valid, message = validate_instrument_data(data)
+            # step 2 redirect: move to data/quarantine, log move to qurantine bucket with info about data quality issue
+            if not is_valid:
+                logger.error(f"VALIDATION_FAILED: {message} in {file_path}")
+                cursor = conn.cursor()
+                cursor.execute("INSERT INTO Quarantine_Logs (file_name, message) VALUES (?, ?)",
+                (os.path.basename(file_path), message))
+                conn.commit()
+                self.quarantine_file(file_path)
+                return
+
+            # step 3: any pre-processing and flatten the json
+            # step 4: add rows to sqlite database, log addition of rows to database
             metadata = {
                 'sample_name': data['Sample']['Name'],
                 'sample_mass_value': data['Sample']['Mass']['Value'],
                 'operator_name': data['Operators'][0]['Name'],
                 'start_time': data['StartTime']
             }
-
-            create_db_schema()
-            conn = get_connection()
 
             with conn:
 
@@ -73,7 +85,6 @@ class LabDataHandler(FileSystemEventHandler):
                 df['experiment_id'] = exp_id
                 df.to_sql('Measurements', conn, if_exists='append', index=False)
 
-            conn.close()
             logger.info(f"Successfully ingested and added rows to database from: {file_path}")
 
             # step 5: move to data/processed, log move to processed bucket
@@ -82,6 +93,14 @@ class LabDataHandler(FileSystemEventHandler):
         
         except Exception as e:
             logger.error(f"Database Error for {file_path}: {e}")
+            logger.error(f"VALIDATION_FAILED: {message} in {file_path}")
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO Quarantine_Logs (file_name, message) VALUES (?, ?)",
+                (os.path.basename(file_path), message))
+            conn.commit()
+
+        finally:
+            conn.close()
 
 
 if __name__ == "__main__":

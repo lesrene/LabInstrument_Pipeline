@@ -2,3 +2,4 @@ json
 watchdog
 sqlite3
 logging
+streamlit
